@@ -2,7 +2,23 @@
 
 Forecasting air raid alerts per oblast from the official alert history, with a strict no-leakage setup.
 
-> Work in progress. Full decision log with evidence: [`DECISIONS.md`](DECISIONS.md). Every look at the test period: [`experiments.md`](experiments.md).
+Full decision log with evidence: [`DECISIONS.md`](DECISIONS.md). Every look at the test period: [`experiments.md`](experiments.md). Plan for the final steps: [`specs/final-evaluation-plan.md`](specs/final-evaluation-plan.md).
+
+## Results
+
+Final model scored once on the test period (2026-07-26 → 2026-09-06, 24 oblasts, every hour), `reports/final_evaluation.md`.
+
+**Main number: Brier skill** (how much lower the model's Brier score is than the opponent's; Brier = how far predicted probabilities are from what happened).
+
+| Horizon | vs recency rule | vs climatology | Weeks better than recency |
+|---|---|---|---|
+| 1 h | +5.8% | +11.5% | — |
+| **3 h** | **+10.4%** | **+19.2%** | **6 of 6** |
+| 6 h | +6.1% | +15.4% | — |
+
+- **How to read +10.4%:** on the 10 validation periods before the test, the same model averaged **+3.0%** (better in 10 of 10). The test result is at the high end, driven by the last two weeks (+12% and +26%); our judgement is that a realistic expectation lies somewhere between the two, not at +10%.
+- **Calibration** is good: when the model says x%, alerts started in about x% of hours (`reports/calibration_test.png`).
+- **AUC is not our main number, and within an oblast it is weak.** Over all oblasts together the AUC is 0.91, but that mostly measures *which oblast* is active. **Within a single oblast** the average is **0.70** (recency rule 0.63) in the test period, and **0.66** (recency 0.55, climatology 0.54) over 20 weeks of validation (`reports/within_oblast_auc.md`). The 0.55 seen in one 2-week validation period was a weak stretch, not the norm. So the model is much better at estimating *how likely* an alert is than at telling *which hours* within an oblast will have one.
 
 ## Data
 - **Source:** `official_data_en.csv` from [Vadimkin/ukrainian-air-raid-sirens-dataset](https://github.com/Vadimkin/ukrainian-air-raid-sirens-dataset) (MIT), parsed from the official Telegram channel [@air_alert_ua](https://t.me/air_alert_ua).
@@ -16,10 +32,10 @@ Forecasting air raid alerts per oblast from the official alert history, with a s
 | Area | Decision |
 |---|---|
 | Leakage | Every input is computed as of forecast time *t*. Intervals are cut at *t*. Statistics are fitted on training data only. Training rows whose label window reaches past *t* are purged. |
-| Evaluation | Walk-forward backtest on 10 two-week periods before the test period; the test period (last 6 weeks) is scored **once**. Main metric: Brier skill vs a "what's happening right now" rule (recency baseline); climatology is secondary. |
+| Evaluation | Walk-forward backtest on 10 two-week periods before the test period. The **final model scored the test period (last 6 weeks) once**; the test period had been seen 3× before, during target selection (`experiments.md` #1, #2, #4). Main metric: **Brier skill vs a "recent alert starts" rule** (recency baseline); climatology is secondary. |
 | Regions | 24 regions (23 oblasts + Kyiv City). **Luhansk and Crimea are excluded** because their alert has been permanent since 2022 and carries no forecastable signal. **This is not a claim that they are safe.** No forecasts are produced for them. |
 | Target | **P(an alert starts in the oblast within the next 3 h)**, with 1 h and 6 h also reported, a new forecast every hour. Chosen over daily counts and alert duration by a measured comparison (`reports/d2_target_comparison.md`). |
-| Model | Gradient boosting (GBM) with recent-alert, calendar, national and **neighbouring-oblast** features. Chosen over logistic regression by rules fixed before the comparison (`reports/d7_d8_models.md`). |
+| Model | Gradient boosting (GBM) with recent alert starts, calendar, national and **neighbouring-oblast** features, **start times only**. Chosen over logistic regression by rules fixed before the comparison (`reports/d7_d8_models.md`). Features using alert end times were removed because they leak (`reports/drop_active_check.md`). |
 | Unit | Oblast. Since late 2025 official alerts are raion-level, so an oblast event = any raion- or oblast-level alert in that oblast. |
 
 ### Features we decided against
@@ -38,6 +54,7 @@ Run from the repo root, in this order (Python 3.12, `pip install -r requirements
 | 5 | `scripts/walk_forward.py` | validation | Model vs baselines on 10 two-week periods before the test period (D5) | `reports/walk_forward.md` |
 | 6 | `scripts/d7_d8_models.py` | validation | LR vs GBM, with and without neighbour features: chooses the model (D7/D8) | `reports/d7_d8_models.md` |
 | 7 | `scripts/drop_active_check.py` | validation | Removes the features that use alert end times (they leak, L37) and picks the start-only recency opponent (L38) | `reports/drop_active_check.md`, `reports/recency_choice.json` |
+| 7b | `scripts/within_oblast_auc.py` | validation | Per-oblast AUC over all 10 validation periods (checks how well hours are ranked within one oblast) | `reports/within_oblast_auc.md` |
 | 8 | `python -m pytest tests/` | checks | The three leakage tests (future data can't change features, purging, excluded regions) | pass/fail |
 | 9 | `scripts/final_evaluation.py --dry-run` | **final model** | The final code path on the last validation period instead of the test (must match script 7 exactly) | `reports/final_evaluation_dryrun.md` |
 | 10 | `scripts/final_evaluation.py --score-test` | **final model** | Trains on everything before the test period and scores it **once**. Refuses to run twice (lock file) | `reports/final_evaluation.md`, `reports/final_predictions.csv` |
@@ -50,6 +67,8 @@ Run from the repo root, in this order (Python 3.12, `pip install -r requirements
 - **Only ~9 months of training data** (the district-level period), because the alert unit changed in late 2025.
 - **The target was chosen partly by looking at the test period** (`experiments.md` #1), so the test is not fully "unseen" for that choice.
 - **Imperfect end times in the official data:** 623 alerts last over 24 h (possibly missed all-clear messages), and some alerts with a missing all-clear got an end time of start + 1 h without being flagged. The target uses only start times, but the "alert active right now" features use end times. Left as-is in v1.
+- **The leak fix cost accuracy:** removing the features that use alert end times made the Brier score 4.6% worse in validation (3 h). Also, when an all-clear is missing and a new alert follows within 3 h, the parser overwrote the first alert's start; those starts are lost from the data.
+- **Last days of the test period:** alerts still open when the channel stopped (2026-09-07 06:09 UTC) were never written, so the final hours may miss some alert starts.
 - **Parsed, not raw, official data:** the file is a third-party parse of the Telegram channel. We checked the parser on the channel's last 1,199 messages (all alert messages parsed), but not over the full period.
 
 ## Future work (with more time)
