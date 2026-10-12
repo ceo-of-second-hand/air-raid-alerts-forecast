@@ -1,0 +1,14 @@
+# raw data is downloaded by scripts/download_data.py
+data/raw/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+
+# secrets (e.g. API tokens, if ever added)
+.env
+
+# local scratch output of the output-too-long skill
+.claude/long-outputs/
+.claude/settings.local.json
