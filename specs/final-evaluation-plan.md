@@ -91,6 +91,8 @@
 ## Backlog (later, if time allows)
 
 - **Steps 1–2 (shared `core.py` module + proving it changed nothing):** moved here by Ivanka on 2026-10-12. The refactor doesn't change any result; the final script imports from the existing scripts instead.
+- **Reorganise `reports/`** (it mixes reports, data files, images and the lock file), added 2026-10-12.
+- **Clean up code comments**, added 2026-10-12.
 
 - Stronger leakage tests:
   - changes at or after T0 (not only after), including neighbour oblasts;

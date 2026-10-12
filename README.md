@@ -4,6 +4,12 @@ Forecasting air raid alerts per oblast from the official alert history, with a s
 
 Full decision log with evidence: [`DECISIONS.md`](DECISIONS.md). Every look at the test period: [`experiments.md`](experiments.md). Plan for the final steps: [`specs/final-evaluation-plan.md`](specs/final-evaluation-plan.md).
 
+## Start here
+- **To understand the result:** read [Results](#results) below, then `reports/final_evaluation.md`. Every choice behind it, with evidence, is in `DECISIONS.md` (the L-rules).
+- **To check it:** `pip install -r requirements.txt`, then `python scripts/download_data.py`, `python scripts/build_adjacency.py`, `python -m pytest tests/`, `python scripts/final_evaluation.py --dry-run`.
+- **The test period has already been scored once** (`reports/.test_scored`). `final_evaluation.py --score-test` refuses to run again unless given `--rerun-reason "..."`, which is logged in `experiments.md`.
+- **`.claude/skills/`** is the AI tooling Ivanka set up and used in this Claude Code session (how long outputs and script results are presented). It isn't part of the model.
+
 ## Results
 
 Final model scored once on the test period (2026-07-26 → 2026-09-06, 24 oblasts, every hour), `reports/final_evaluation.md`.
@@ -43,30 +49,38 @@ Final model scored once on the test period (2026-07-26 → 2026-09-06, 24 oblast
 - **Weather.** Only *forecast* weather available at forecast time would be leak-free (observed weather would leak), and we had no source for it.
 
 ## How to run
-Run from the repo root, in this order (Python 3.12, `pip install -r requirements.txt`):
+Run from the repo root (Python 3.12, `pip install -r requirements.txt`). Scripts are grouped by role; within a group, run them in the order listed.
 
-| # | Script | Role | What it does | Output |
-|---|---|---|---|---|
-| 1 | `scripts/download_data.py` | **pipeline** | Downloads the data from a fixed upstream commit and checks each file's SHA-256 | `data/raw/` |
-| 2 | `scripts/build_adjacency.py` | **pipeline** | Works out which oblasts share a border, from the district boundaries | `data/oblast_adjacency.json` |
-| 3 | `scripts/crosscheck_d1.py` | exploration | Compares the official and volunteer files to choose the data source (D1) | `reports/d1_crosscheck.md` |
-| 4 | `scripts/d2_target_comparison.py` | exploration ⚠️ | Compares three possible targets (D2). **Scores the test period**, so it is frozen: it refuses to run without `--i-know-this-scores-the-test-period` | `reports/d2_target_comparison.md` |
-| 5 | `scripts/walk_forward.py` | validation | Model vs baselines on 10 two-week periods before the test period (D5) | `reports/walk_forward.md` |
-| 6 | `scripts/d7_d8_models.py` | validation | LR vs GBM, with and without neighbour features: chooses the model (D7/D8) | `reports/d7_d8_models.md` |
-| 7 | `scripts/drop_active_check.py` | validation | Removes the features that use alert end times (they leak, L37) and picks the start-only recency opponent (L38) | `reports/drop_active_check.md`, `reports/recency_choice.json` |
-| 7b | `scripts/within_oblast_auc.py` | validation | Per-oblast AUC over all 10 validation periods (checks how well hours are ranked within one oblast) | `reports/within_oblast_auc.md` |
-| 8 | `python -m pytest tests/` | checks | The three leakage tests (future data can't change features, purging, excluded regions) | pass/fail |
-| 9 | `scripts/final_evaluation.py --dry-run` | **final model** | The final code path on the last validation period instead of the test (must match script 7 exactly) | `reports/final_evaluation_dryrun.md` |
-| 10 | `scripts/final_evaluation.py --score-test` | **final model** | Trains on everything before the test period and scores it **once**. Refuses to run twice (lock file) | `reports/final_evaluation.md`, `reports/final_predictions.csv` |
+### Final pipeline (produces the result)
+| Script | What it does | Output |
+|---|---|---|
+| `scripts/download_data.py` | Downloads the data from a fixed upstream commit and checks each file's SHA-256 | `data/raw/` |
+| `scripts/build_adjacency.py` | Works out which oblasts share a border, from the district boundaries | `data/oblast_adjacency.json` |
+| `python -m pytest tests/` | The three leakage tests (future data can't change features, purging, excluded regions) | pass/fail |
+| `scripts/final_evaluation.py --dry-run` | The final code path on the last validation period instead of the test (matches `drop_active_check` exactly) | `reports/final_evaluation_dryrun.md` |
+| `scripts/final_evaluation.py --score-test` | Trains on everything before the test period and scores it **once** (already done; lock file) | `reports/final_evaluation.md`, `reports/final_predictions.csv` |
 
-- **Exploration** scripts were used to make decisions and aren't needed to reproduce the final model. **Validation** scripts justify the model choices. **Pipeline**, **checks** and **final model** are what produces the result.
-- Shared code (data loading, the hourly feature table, neighbour features) lives in the exploration/validation scripts and is imported from there. Moving it into one module is in the backlog (`specs/final-evaluation-plan.md`); it doesn't change any result.
+### Validation (justifies the model choices; test period not used)
+| Script | What it does | Output |
+|---|---|---|
+| `scripts/walk_forward.py` | Model vs baselines on 10 two-week periods before the test period (D5) | `reports/walk_forward.md` |
+| `scripts/d7_d8_models.py` | LR vs GBM, with and without neighbour features: chooses the model (D7/D8) | `reports/d7_d8_models.md` |
+| `scripts/drop_active_check.py` | Removes the features that use alert end times (they leak, L37) and picks the start-only recency opponent (L38) | `reports/drop_active_check.md`, `reports/recency_choice.json` |
+| `scripts/within_oblast_auc.py` | Per-oblast AUC over all 10 validation periods | `reports/within_oblast_auc.md` |
+
+### Exploration (used to make early decisions; not needed to reproduce the result)
+| Script | What it does | Output |
+|---|---|---|
+| `scripts/crosscheck_d1.py` | Compares the official and volunteer files to choose the data source (D1) | `reports/d1_crosscheck.md` |
+| `scripts/d2_target_comparison.py` ⚠️ | Compares three possible targets (D2). **Scores the test period**, so it is frozen: it refuses to run without `--i-know-this-scores-the-test-period` | `reports/d2_target_comparison.md` |
+
+**How the code connects:** there is no shared module yet. Each script imports shared code from the one before it, in a chain: `d2_target_comparison` (data loading, hourly feature table) → `walk_forward` (periods, baselines) → `d7_d8_models` (neighbour features) → `drop_active_check` (final feature set, model settings) → `final_evaluation`. So the final model depends on the frozen exploration script for its core code. A shared module is in the backlog (`specs/final-evaluation-plan.md`) and wouldn't change any result.
 
 ## Limitations
 - **Data ends 2026-09-06.** The official channel stopped posting on 2026-09-07, so the model hasn't been checked on anything later.
 - **Only ~9 months of training data** (the district-level period), because the alert unit changed in late 2025.
 - **The target was chosen partly by looking at the test period** (`experiments.md` #1), so the test is not fully "unseen" for that choice.
-- **Imperfect end times in the official data:** 623 alerts last over 24 h (possibly missed all-clear messages), and some alerts with a missing all-clear got an end time of start + 1 h without being flagged. The target uses only start times, but the "alert active right now" features use end times. Left as-is in v1.
+- **Imperfect end times in the official data:** 623 alerts last over 24 h (possibly missed all-clear messages), and some alerts with a missing all-clear got an end time of start + 1 h without being flagged. The target and the final model's features use only start times (the end-time features were removed, L37), so this affects the cleaned data but not the final model's inputs.
 - **The leak fix cost accuracy:** removing the features that use alert end times made the Brier score 4.6% worse in validation (3 h). Also, when an all-clear is missing and a new alert follows within 3 h, the parser overwrote the first alert's start; those starts are lost from the data.
 - **Last days of the test period:** alerts still open when the channel stopped (2026-09-07 06:09 UTC) were never written, so the final hours may miss some alert starts.
 - **Parsed, not raw, official data:** the file is a third-party parse of the Telegram channel. We checked the parser on the channel's last 1,199 messages (all alert messages parsed), but not over the full period.

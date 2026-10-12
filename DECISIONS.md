@@ -110,9 +110,13 @@ LR = logistic regression with one-hot oblast, hour and weekday, log1p counts, sc
 
 ---
 
-## 🟡 Open decisions (to discuss)
+## 🗄️ Old notes: the original D1–D13 discussion (superseded)
 
-Each item lists the options and a **suggested default**. Nothing here is decided yet.
+> **These are the working notes from the start of the project, kept as a record. They are superseded by the L-rules above.**
+> Every D-item has since been decided: D1 → L18, D2 → L21, D3 → L19, D4 → L29, D5 → L23–L25/L30, D6 → L31, D7 → L28, D8 → L28/L32/L33/L37, D9 → L20, D10 → L22, D11 → L34, D12 → L35, D13 → L36.
+> Where a note below says "suggested" or "not decided yet", the L-rule wins.
+
+Each item lists the options and a **suggested default**. (Original text, unchanged.)
 
 ### D1. Data source
 - Options: a community-maintained GitHub dataset of historical alerts (e.g. the *ukrainian-air-raid-sirens-dataset*), the alerts.in.ua API (needs a token), other public alert APIs, or our own collection.
@@ -233,5 +237,5 @@ Official file outage is a known open issue in the repo (opened 2026-09-21 and 20
 
 ---
 
-## Next step
-Go through D1 → D2 → D3/D4 first. Most of the other decisions depend on them.
+## Next step (old note)
+~~Go through D1 → D2 → D3/D4 first. Most of the other decisions depend on them.~~ Done; all decisions are locked above.
