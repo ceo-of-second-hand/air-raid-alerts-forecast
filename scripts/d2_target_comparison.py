@@ -222,4 +222,9 @@ def main():
 
 
 if __name__ == "__main__":
+    import sys
+    if "--i-know-this-scores-the-test-period" not in sys.argv:
+        raise SystemExit("Frozen: this exploration script scores the TEST period (see experiments.md). "
+                         "Its report is kept as a record. Re-run only with --i-know-this-scores-the-test-period "
+                         "and log the run in experiments.md.")
     main()

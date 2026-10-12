@@ -94,6 +94,12 @@ LR = logistic regression with one-hot oblast, hour and weekday, log1p counts, sc
 | L35 (D12) | `scripts/` + `requirements.txt` (exact versions) + README section on what each script does, its output, run order, exploration vs final + `tests/` with leakage tests. `data/raw/` not in git (downloaded by script). |
 | L36 (D13) | Public GitHub repo `air-raid-alerts-forecast`. Commits include a Co-Authored-By: Claude line. **Nothing is pushed without Ivanka's confirmation.** AI log via `/export` at the end. |
 
+### Final-evaluation plan (locked 2026-10-12, `specs/final-evaluation-plan.md`)
+| # | Decision | Why |
+|---|----------|-----|
+| L37 | **Drop `active_at_T` and `nb_active`** (the only features using alert end times). The version without them is adopted **whatever it scores**, and the difference is reported. It must still pass L25. | Independent review (H1): the official parser sets missing end times using *future* starts, so these features leak. Rebuilding a leak-free version is in the backlog. |
+| L38 | **Recency opponent = best start-only variant** (k = 1 / 3 / 6 h), chosen by mean Brier on the validation periods before the test. Supersedes the "3h + active" opponent in L23/L24. | The old opponent used end times too, so keeping it would compare a leak-free model with a leaky baseline. |
+
 ### Submission
 | # | Decision |
 |---|----------|

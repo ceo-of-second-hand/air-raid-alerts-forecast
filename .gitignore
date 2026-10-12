@@ -12,3 +12,4 @@ __pycache__/
 # local scratch output of the output-too-long skill
 .claude/long-outputs/
 .claude/settings.local.json
+.pytest_cache/

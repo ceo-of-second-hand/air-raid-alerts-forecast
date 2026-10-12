@@ -14,7 +14,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 RAW = ROOT / "data" / "raw"
 REPORT = ROOT / "reports" / "d1_crosscheck.md"
-BASE_URL = "https://raw.githubusercontent.com/Vadimkin/ukrainian-air-raid-sirens-dataset/main/datasets"
+BASE_URL = "https://raw.githubusercontent.com/Vadimkin/ukrainian-air-raid-sirens-dataset/d10c80fa696bab42822b9f05b423fc8a30e79d20/datasets"
 FILES = {"official": "official_data_en.csv", "volunteer": "volunteer_data_en.csv"}
 
 EXCLUDED = {"Luhanska oblast", "Crimea", "Avtonomna Respublika Krym", "Sevastopol"}  # L15

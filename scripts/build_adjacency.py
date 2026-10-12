@@ -14,7 +14,7 @@ from shapely.ops import unary_union
 ROOT = Path(__file__).resolve().parents[1]
 GEOJSON = ROOT / "data" / "raw" / "ukr_admin2.geojson"
 OUT = ROOT / "data" / "oblast_adjacency.json"
-URL = "https://raw.githubusercontent.com/Vadimkin/ukrainian-air-raid-sirens-dataset/main/example/ukr_admin2.geojson"
+URL = "https://raw.githubusercontent.com/Vadimkin/ukrainian-air-raid-sirens-dataset/d10c80fa696bab42822b9f05b423fc8a30e79d20/example/ukr_admin2.geojson"
 EXCLUDED = {"Autonomous Republic of Crimea", "Sevastopol", "Luhanska"}
 
 

@@ -31,16 +31,19 @@ Run from the repo root, in this order (Python 3.12, `pip install -r requirements
 
 | # | Script | Role | What it does | Output |
 |---|---|---|---|---|
-| 1 | `scripts/download_data.py` | **pipeline** | Downloads the alert files and district boundaries | `data/raw/` |
+| 1 | `scripts/download_data.py` | **pipeline** | Downloads the data from a fixed upstream commit and checks each file's SHA-256 | `data/raw/` |
 | 2 | `scripts/build_adjacency.py` | **pipeline** | Works out which oblasts share a border, from the district boundaries | `data/oblast_adjacency.json` |
 | 3 | `scripts/crosscheck_d1.py` | exploration | Compares the official and volunteer files to choose the data source (D1) | `reports/d1_crosscheck.md` |
-| 4 | `scripts/d2_target_comparison.py` | exploration ⚠️ | Compares three possible targets (D2). **Scores the test period**, see `experiments.md` | `reports/d2_target_comparison.md` |
+| 4 | `scripts/d2_target_comparison.py` | exploration ⚠️ | Compares three possible targets (D2). **Scores the test period**, so it is frozen: it refuses to run without `--i-know-this-scores-the-test-period` | `reports/d2_target_comparison.md` |
 | 5 | `scripts/walk_forward.py` | validation | Model vs baselines on 10 two-week periods before the test period (D5) | `reports/walk_forward.md` |
-| 6 | `scripts/d7_d8_models.py` | validation | LR vs GBM, with and without neighbour features: chooses the final model (D7/D8) | `reports/d7_d8_models.md` |
-| 7 | `scripts/final_evaluation.py` | **final model** | *Not written yet.* Trains the chosen model on all data before the test period and scores the test period once | `reports/final_evaluation.md` |
+| 6 | `scripts/d7_d8_models.py` | validation | LR vs GBM, with and without neighbour features: chooses the model (D7/D8) | `reports/d7_d8_models.md` |
+| 7 | `scripts/drop_active_check.py` | validation | Removes the features that use alert end times (they leak, L37) and picks the start-only recency opponent (L38) | `reports/drop_active_check.md`, `reports/recency_choice.json` |
+| 8 | `python -m pytest tests/` | checks | The three leakage tests (future data can't change features, purging, excluded regions) | pass/fail |
+| 9 | `scripts/final_evaluation.py --dry-run` | **final model** | The final code path on the last validation period instead of the test (must match script 7 exactly) | `reports/final_evaluation_dryrun.md` |
+| 10 | `scripts/final_evaluation.py --score-test` | **final model** | Trains on everything before the test period and scores it **once**. Refuses to run twice (lock file) | `reports/final_evaluation.md`, `reports/final_predictions.csv` |
 
-- **Exploration** scripts were used to make decisions and aren't needed to reproduce the final model. **Validation** scripts justify the model choice. **Pipeline** and **final model** scripts are what produces the result.
-- Note: shared code (data loading, the hourly feature table, neighbour features) currently lives inside scripts 4–6 and is imported from there. It will be moved into one shared module when the final script is written.
+- **Exploration** scripts were used to make decisions and aren't needed to reproduce the final model. **Validation** scripts justify the model choices. **Pipeline**, **checks** and **final model** are what produces the result.
+- Shared code (data loading, the hourly feature table, neighbour features) lives in the exploration/validation scripts and is imported from there. Moving it into one module is in the backlog (`specs/final-evaluation-plan.md`); it doesn't change any result.
 
 ## Limitations
 - **Data ends 2026-09-06.** The official channel stopped posting on 2026-09-07, so the model hasn't been checked on anything later.
